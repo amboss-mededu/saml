@@ -633,57 +633,57 @@ func (test *ServiceProviderTest) TestInvalidAssertions(c *C) {
 	err = xml.Unmarshal(assertionBuf, &assertion)
 	c.Assert(err, IsNil)
 
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow().Add(time.Hour))
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow().Add(time.Hour), false)
 	c.Assert(err.Error(), Equals, "expired on 2015-12-01 01:57:51.375 +0000 UTC")
 
 	assertion.Issuer.Value = "bob"
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "issuer is not \"https://idp.testshib.org/idp/shibboleth\"")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Subject.NameID.NameQualifier = "bob"
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err, IsNil) // not verified
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Subject.NameID.SPNameQualifier = "bob"
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err, IsNil) // not verified
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	pretty.Print(assertion.Subject.SubjectConfirmations)
-	err = s.validateAssertion(&assertion, []string{"any request id"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"any request id"}, TimeNow(), false)
 	c.Assert(err, ErrorMatches, "SubjectConfirmation one of the possible request IDs .*")
 
 	assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData.Recipient = "wrong/acs/url"
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "SubjectConfirmation Recipient is not https://15661444.ngrok.io/saml2/acs")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Subject.SubjectConfirmations[0].SubjectConfirmationData.NotOnOrAfter = TimeNow().Add(-1 * time.Hour)
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "SubjectConfirmationData is expired")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Conditions.NotBefore = TimeNow().Add(time.Hour)
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "Conditions is not yet valid")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Conditions.NotOnOrAfter = TimeNow().Add(-1 * time.Hour)
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "Conditions is expired")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 
 	assertion.Conditions.AudienceRestrictions[0].Audience.Value = "not/our/metadata/url"
-	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow())
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
 	c.Assert(err.Error(), Equals, "Conditions AudienceRestriction does not contain \"https://15661444.ngrok.io/saml2/metadata\"")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
