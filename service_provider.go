@@ -374,7 +374,7 @@ func (ivr *InvalidResponseError) Error() string {
 // properties are useful in describing which part of the parsing process
 // failed. However, to discourage inadvertent disclosure the diagnostic
 // information, the Error() method returns a static string.
-func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs []string) (*Assertion, error) {
+func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs []string, skipEntity bool) (*Assertion, error) {
 	now := TimeNow()
 	retErr := &InvalidResponseError{
 		Now:      now,
@@ -414,7 +414,7 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 		retErr.PrivateErr = fmt.Errorf("IssueInstant expired at %s", resp.IssueInstant.Add(MaxIssueDelay))
 		return nil, retErr
 	}
-	if resp.Issuer.Value != sp.IDPMetadata.EntityID {
+	if !skipEntity && (resp.Issuer.Value != sp.IDPMetadata.EntityID) {
 		retErr.PrivateErr = fmt.Errorf("Issuer does not match the IDP metadata (expected %q)", sp.IDPMetadata.EntityID)
 		return nil, retErr
 	}
