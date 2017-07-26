@@ -254,7 +254,7 @@ uzZ1y9sNHH6kH8GFnvS2MqyHiNz0h0Sq/q6n+w==</ds:X509Certificate>
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", SamlResponse)
-	assertion, err := s.ParseResponse(&req, []string{"id-d40c15c104b52691eccf0a2a5c8a15595be75423"}, false)
+	assertion, _, err := s.ParseResponse(&req, []string{"id-d40c15c104b52691eccf0a2a5c8a15595be75423"}, false)
 	if err != nil {
 		c.Logf("%s", err.(*InvalidResponseError).PrivateErr)
 	}
@@ -366,7 +366,7 @@ PUkfbaYHQGP6IS0lzeCeDX0wab3qRoh7/jJt5/BR8Iwf</ds:X509Certificate>
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", SamlResponse)
-	assertion, err := s.ParseResponse(&req, []string{"id-fd419a5ab0472645427f8e07d87a3a5dd0b2e9a6"}, false)
+	assertion, _, err := s.ParseResponse(&req, []string{"id-fd419a5ab0472645427f8e07d87a3a5dd0b2e9a6"}, false)
 	if err != nil {
 		c.Logf("%s", err.(*InvalidResponseError).PrivateErr)
 	}
@@ -420,7 +420,7 @@ func (test *ServiceProviderTest) TestCanParseResponse(c *C) {
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	assertion, err := s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	assertion, _, err := s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err, IsNil)
 
 	c.Assert(assertion.AttributeStatements[0].Attributes, DeepEquals, []Attribute{
@@ -557,21 +557,21 @@ func (test *ServiceProviderTest) TestInvalidResponses(c *C) {
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", "???")
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr, ErrorMatches, "cannot parse base64: illegal base64 data at input byte 0")
 
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte("<hello>World!</hello>")))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr, ErrorMatches, "cannot unmarshal response: expected element type <Response> but have <hello>")
 
 	s.AcsURL = mustParseURL("https://wrong/saml2/acs")
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "`Destination` does not match AcsURL (expected \"https://wrong/saml2/acs\")")
 	s.AcsURL = mustParseURL("https://15661444.ngrok.io/saml2/acs")
 
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"wrongRequestID"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"wrongRequestID"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "`InResponseTo` does not match any of the possible request IDs (expected [wrongRequestID])")
 
 	TimeNow = func() time.Time {
@@ -580,7 +580,7 @@ func (test *ServiceProviderTest) TestInvalidResponses(c *C) {
 	}
 	Clock = dsig.NewFakeClockAt(TimeNow())
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "IssueInstant expired at 2015-12-01 01:57:51.375 +0000 UTC")
 	TimeNow = func() time.Time {
 		rv, _ := time.Parse("Mon Jan 2 15:04:05 MST 2006", "Mon Dec 1 01:57:09 UTC 2015")
@@ -590,25 +590,25 @@ func (test *ServiceProviderTest) TestInvalidResponses(c *C) {
 
 	s.IDPMetadata.EntityID = "http://snakeoil.com"
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "Issuer does not match the IDP metadata (expected \"http://snakeoil.com\")")
 	s.IDPMetadata.EntityID = "https://idp.testshib.org/idp/shibboleth"
 
 	oldSpStatusSuccess := StatusSuccess
 	StatusSuccess = "not:the:success:value"
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "Status code was not not:the:success:value")
 	StatusSuccess = oldSpStatusSuccess
 
 	s.IDPMetadata.IDPSSODescriptors[0].KeyDescriptors[0].KeyInfo.Certificate = "invalid"
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr, ErrorMatches, "cannot validate signature on Response: cannot parse certificate: illegal base64 data at input byte 4")
 
 	s.IDPMetadata.IDPSSODescriptors[0].KeyDescriptors[0].KeyInfo.Certificate = "aW52YWxpZA=="
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr, ErrorMatches, "cannot validate signature on Response: asn1: structure error: tags don't match .*")
 }
 
@@ -626,7 +626,7 @@ func (test *ServiceProviderTest) TestInvalidAssertions(c *C) {
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
 	s.IDPMetadata.IDPSSODescriptors[0].KeyDescriptors[0].KeyInfo.Certificate = "invalid"
-	_, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
 	assertionBuf := []byte(err.(*InvalidResponseError).Response)
 
 	assertion := Assertion{}
@@ -719,7 +719,7 @@ DgefdDXhYNmeuQtwGtcu/FI66atQMNTDoChXJQ==</ds:Modulus><ds:Exponent>AQAB</ds:Expon
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(respStr)))
-	_, err = s.ParseResponse(&req, []string{"id-3992f74e652d89c3cf1efd6c7e472abaac9bc917"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-3992f74e652d89c3cf1efd6c7e472abaac9bc917"}, false)
 	if err != nil {
 		c.Assert(err.(*InvalidResponseError).PrivateErr, IsNil)
 	}
@@ -803,7 +803,7 @@ DgefdDXhYNmeuQtwGtcu/FI66atQMNTDoChXJQ==</ds:Modulus><ds:Exponent>AQAB</ds:Expon
 
 	req := http.Request{PostForm: url.Values{}}
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(respStr)))
-	_, err = s.ParseResponse(&req, []string{"id-3992f74e652d89c3cf1efd6c7e472abaac9bc917"}, false)
+	_, _, err = s.ParseResponse(&req, []string{"id-3992f74e652d89c3cf1efd6c7e472abaac9bc917"}, false)
 	if err != nil {
 		c.Assert(err.(*InvalidResponseError).PrivateErr, IsNil)
 	}

@@ -374,8 +374,9 @@ func (ivr *InvalidResponseError) Error() string {
 // properties are useful in describing which part of the parsing process
 // failed. However, to discourage inadvertent disclosure the diagnostic
 // information, the Error() method returns a static string.
-func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs []string, skipEntity bool) (*Assertion, error) {
+func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs []string, skipEntity bool) (*Assertion, string, error) {
 	now := TimeNow()
+	requestID := ""
 	retErr := &InvalidResponseError{
 		Now:      now,
 		Response: req.PostForm.Get("SAMLResponse"),
@@ -384,7 +385,7 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 	rawResponseBuf, err := base64.StdEncoding.DecodeString(req.PostForm.Get("SAMLResponse"))
 	if err != nil {
 		retErr.PrivateErr = fmt.Errorf("cannot parse base64: %s", err)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 	retErr.Response = string(rawResponseBuf)
 
@@ -392,35 +393,36 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 	resp := Response{}
 	if err := xml.Unmarshal(rawResponseBuf, &resp); err != nil {
 		retErr.PrivateErr = fmt.Errorf("cannot unmarshal response: %s", err)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 	if resp.Destination != sp.AcsURL.String() {
 		retErr.PrivateErr = fmt.Errorf("`Destination` does not match AcsURL (expected %q)", sp.AcsURL.String())
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 
 	requestIDvalid := false
 	for _, possibleRequestID := range possibleRequestIDs {
 		if resp.InResponseTo == possibleRequestID {
 			requestIDvalid = true
+			requestID = possibleRequestID
 		}
 	}
 	if !requestIDvalid {
 		retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 
 	if resp.IssueInstant.Add(MaxIssueDelay).Before(now) {
 		retErr.PrivateErr = fmt.Errorf("IssueInstant expired at %s", resp.IssueInstant.Add(MaxIssueDelay))
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 	if !skipEntity && (resp.Issuer.Value != sp.IDPMetadata.EntityID) {
 		retErr.PrivateErr = fmt.Errorf("Issuer does not match the IDP metadata (expected %q)", sp.IDPMetadata.EntityID)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 	if resp.Status.StatusCode.Value != StatusSuccess {
 		retErr.PrivateErr = fmt.Errorf("Status code was not %s", StatusSuccess)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 
 	var assertion *Assertion
@@ -429,19 +431,19 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 		doc := etree.NewDocument()
 		if err := doc.ReadFromBytes(rawResponseBuf); err != nil {
 			retErr.PrivateErr = err
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 
 		// TODO(ross): verify that the namespace is urn:oasis:names:tc:SAML:2.0:protocol
 		responseEl := doc.Root()
 		if responseEl.Tag != "Response" {
 			retErr.PrivateErr = fmt.Errorf("expected to find a response object, not %s", doc.Root().Tag)
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 
 		if err = sp.validateSigned(responseEl); err != nil {
 			retErr.PrivateErr = err
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 
 		assertion = resp.Assertion
@@ -452,40 +454,40 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 		doc := etree.NewDocument()
 		if err := doc.ReadFromBytes(rawResponseBuf); err != nil {
 			retErr.PrivateErr = err
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 		el := doc.FindElement("//EncryptedAssertion/EncryptedData")
 		plaintextAssertion, err := xmlenc.Decrypt(sp.Key, el)
 		if err != nil {
 			retErr.PrivateErr = fmt.Errorf("failed to decrypt response: %s", err)
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 		retErr.Response = string(plaintextAssertion)
 
 		doc = etree.NewDocument()
 		if err := doc.ReadFromBytes(plaintextAssertion); err != nil {
 			retErr.PrivateErr = fmt.Errorf("cannot parse plaintext response %v", err)
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 
 		if err := sp.validateSigned(doc.Root()); err != nil {
 			retErr.PrivateErr = err
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 
 		assertion = &Assertion{}
 		if err := xml.Unmarshal(plaintextAssertion, assertion); err != nil {
 			retErr.PrivateErr = err
-			return nil, retErr
+			return nil, requestID, retErr
 		}
 	}
 
 	if err := sp.validateAssertion(assertion, possibleRequestIDs, now, skipEntity); err != nil {
 		retErr.PrivateErr = fmt.Errorf("assertion invalid: %s", err)
-		return nil, retErr
+		return nil, requestID, retErr
 	}
 
-	return assertion, nil
+	return assertion, requestID, nil
 }
 
 // validateAssertion checks that the conditions specified in assertion match
