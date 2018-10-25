@@ -73,6 +73,10 @@ type ServiceProvider struct {
 	// attribute in the metadata endpoint
 	MetadataValidDuration time.Duration
 
+	// LogoutURL is the full URL to the logout endpoint on this host,
+	// i.e. https://example.com/saml/logout
+	LogoutURL url.URL
+
 	// Logger is used to log messages for example in the event of errors
 	Logger logger.Interface
 }
@@ -132,10 +136,19 @@ func (sp *ServiceProvider) Metadata() *EntityDescriptor {
 							},
 						},
 					},
+					SingleLogoutServices: []Endpoint{
+						Endpoint{
+							Binding:  HTTPPostBinding,
+							Location: sp.LogoutURL.String(),
+						},
+						Endpoint{
+							Binding:  HTTPRedirectBinding,
+							Location: sp.LogoutURL.String(),
+						},
+					},
 				},
 				AuthnRequestsSigned:  &authnRequestsSigned,
 				WantAssertionsSigned: &wantAssertionsSigned,
-
 				AssertionConsumerServices: []IndexedEndpoint{
 					IndexedEndpoint{
 						Binding:  HTTPPostBinding,
