@@ -3,6 +3,7 @@ package saml
 import (
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -98,6 +99,28 @@ func (test *ServiceProviderTest) TestCanSetAuthenticationNameIDFormat(c *C) {
 	req, err = s.MakeAuthenticationRequest("")
 	c.Assert(err, IsNil)
 	c.Assert(*req.NameIDPolicy.Format, Equals, string(EmailAddressNameIDFormat))
+}
+
+func (test *ServiceProviderTest) TestMakeLogoutRequest(c *C) {
+	fmt.Println("JOSELD - TEST")
+	s := ServiceProvider{
+		Key:         test.Key,
+		Certificate: test.Certificate,
+		MetadataURL: mustParseURL("https://15661444.ngrok.io/saml2/metadata"),
+		AcsURL:      mustParseURL("https://15661444.ngrok.io/saml2/acs"),
+	}
+
+	// defaults to "transient"
+	fmt.Println("JOSELD - TEST")
+	var idpURL, userID, sessionIndex string
+	idpURL = ""
+	userID = "josedelamora@invisionapp.com"
+	sessionIndex = "test-121"
+	req, err := s.MakeLogoutRequest(idpURL, userID, sessionIndex)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	fmt.Println(req)
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	c.Assert(err, IsNil)
 }
 
 func (test *ServiceProviderTest) TestCanProduceMetadata(c *C) {

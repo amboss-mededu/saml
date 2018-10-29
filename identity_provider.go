@@ -368,10 +368,10 @@ func (req *IdpAuthnRequest) Validate() error {
 	// We require the destination be correct either (a) if signing is enabled or
 	// (b) if it was provided.
 	mustHaveDestination := idpSsoDescriptor.WantAuthnRequestsSigned != nil && *idpSsoDescriptor.WantAuthnRequestsSigned
-	mustHaveDestination = mustHaveDestination || req.Request.Destination != ""
+	mustHaveDestination = mustHaveDestination || req.Request.Destination() != ""
 	if mustHaveDestination {
-		if req.Request.Destination != req.IDP.SSOURL.String() {
-			return fmt.Errorf("expected destination to be %q, not %q", req.IDP.SSOURL.String(), req.Request.Destination)
+		if req.Request.Destination() != req.IDP.SSOURL.String() {
+			return fmt.Errorf("expected destination to be %q, not %q", req.IDP.SSOURL.String(), req.Request.Destination())
 		}
 	}
 

@@ -174,6 +174,15 @@ func (sp *ServiceProvider) MakeRedirectAuthenticationRequest(relayState string) 
 
 // Redirect returns a URL suitable for using the redirect binding with the request
 func (req *AuthnRequest) Redirect(relayState string) *url.URL {
+	auth := redirect(req, relayState)
+	return auth
+}
+
+func (req *LogoutRequest) Redirect(relayState string) *url.URL {
+	return redirect(req, relayState)
+}
+
+func redirect(req SAMLRequest, relayState string) *url.URL {
 	w := &bytes.Buffer{}
 	w1 := base64.NewEncoder(base64.StdEncoding, w)
 	w2, _ := flate.NewWriter(w1, 9)
@@ -185,7 +194,7 @@ func (req *AuthnRequest) Redirect(relayState string) *url.URL {
 	w2.Close()
 	w1.Close()
 
-	rv, _ := url.Parse(req.Destination)
+	rv, _ := url.Parse(req.Destination())
 
 	query := rv.Query()
 	query.Set("SAMLRequest", string(w.Bytes()))
@@ -270,7 +279,7 @@ func (sp *ServiceProvider) MakeAuthenticationRequest(idpURL string) (*AuthnReque
 	allowCreate := true
 	req := AuthnRequest{
 		AssertionConsumerServiceURL: sp.AcsURL.String(),
-		Destination:                 idpURL,
+		destination:                 idpURL,
 		ProtocolBinding:             HTTPPostBinding, // default binding for the response
 		ID:                          fmt.Sprintf("id-%x", randomBytes(20)),
 		IssueInstant:                TimeNow(),
@@ -290,6 +299,27 @@ func (sp *ServiceProvider) MakeAuthenticationRequest(idpURL string) (*AuthnReque
 	return &req, nil
 }
 
+// MakeLogoutRequest produces a new LogoutRequest object for idpURL.
+func (sp *ServiceProvider) MakeLogoutRequest(idpURL string, userID string, sessionIndex string) (*LogoutRequest, error) {
+	req := LogoutRequest{
+		destination:  idpURL,
+		ID:           fmt.Sprintf("id-%x", randomBytes(20)),
+		IssueInstant: TimeNow(),
+		Version:      "2.0",
+		NameID: &NameID{
+			Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",
+			//NameQualifier:   req.IDP.Metadata().EntityID,
+			//SPNameQualifier: req.ServiceProviderMetadata.EntityID,
+			Value: userID,
+		},
+	}
+
+	if sessionIndex != "" {
+		req.SessionIndex = sessionIndex
+	}
+	return &req, nil
+}
+
 // MakePostAuthenticationRequest creates a SAML authentication request using
 // the HTTP-POST binding. It returns HTML text representing an HTML form that
 // can be sent presented to a browser to initiate the login process.
@@ -303,6 +333,14 @@ func (sp *ServiceProvider) MakePostAuthenticationRequest(relayState string) ([]b
 
 // Post returns an HTML form suitable for using the HTTP-POST binding with the request
 func (req *AuthnRequest) Post(relayState string) []byte {
+	return post(req, relayState)
+}
+
+func (req *LogoutRequest) Post(relayState string) []byte {
+	return post(req, relayState)
+}
+
+func post(req SAMLRequest, relayState string) []byte {
 	doc := etree.NewDocument()
 	doc.SetRoot(req.Element())
 	reqBuf, err := doc.WriteToBytes()
@@ -324,7 +362,7 @@ func (req *AuthnRequest) Post(relayState string) []byte {
 		SAMLRequest string
 		RelayState  string
 	}{
-		URL:         req.Destination,
+		URL:         req.Destination(),
 		SAMLRequest: encodedReqBuf,
 		RelayState:  relayState,
 	}

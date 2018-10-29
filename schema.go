@@ -2,12 +2,20 @@ package saml
 
 import (
 	"encoding/xml"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/beevik/etree"
 	"github.com/russellhaering/goxmldsig/etreeutils"
 )
+
+type SAMLRequest interface {
+	Destination() string
+	Post(relayState string) []byte
+	Redirect(relayState string) *url.URL
+	Element() *etree.Element
+}
 
 // AuthnRequest represents the SAML object of the same name, a request from a service provider
 // to authenticate a user.
@@ -19,7 +27,7 @@ type AuthnRequest struct {
 	ID           string    `xml:",attr"`
 	Version      string    `xml:",attr"`
 	IssueInstant time.Time `xml:",attr"`
-	Destination  string    `xml:",attr"`
+	destination  string    `xml:",attr"`
 	Consent      string    `xml:",attr"`
 	Issuer       *Issuer   `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
 	Signature    *etree.Element
@@ -39,6 +47,28 @@ type AuthnRequest struct {
 	ProviderName                   string `xml:",attr"`
 }
 
+type LogoutRequest struct {
+	XMLName xml.Name `xml:"urn:oasis:names:tc:SAML:2.0:protocol LogoutRequest"`
+
+	ID           string    `xml:",attr"`
+	Version      string    `xml:",attr"`
+	IssueInstant time.Time `xml:",attr"`
+	Reason       string    `xml:",attr"`
+	destination  string    `xml:",attr"`
+
+	NameID       *NameID `xml:"urn:oasis:names:tc:SAML:2.0:assertion NameID"`
+	SessionIndex string  `xml:"urn:oasis:names:tc:SAML:2.0:assertion SessionIndex"`
+	Signature    *etree.Element
+}
+
+func (r *AuthnRequest) Destination() string {
+	return r.destination
+}
+
+func (r *LogoutRequest) Destination() string {
+	return r.destination
+}
+
 // Element returns an etree.Element representing the object
 // Element returns an etree.Element representing the object in XML form.
 func (r *AuthnRequest) Element() *etree.Element {
@@ -48,8 +78,8 @@ func (r *AuthnRequest) Element() *etree.Element {
 	el.CreateAttr("ID", r.ID)
 	el.CreateAttr("Version", r.Version)
 	el.CreateAttr("IssueInstant", r.IssueInstant.Format(timeFormat))
-	if r.Destination != "" {
-		el.CreateAttr("Destination", r.Destination)
+	if r.Destination() != "" {
+		el.CreateAttr("Destination", r.Destination())
 	}
 	if r.Consent != "" {
 		el.CreateAttr("Consent", r.Consent)
@@ -95,6 +125,33 @@ func (r *AuthnRequest) Element() *etree.Element {
 	}
 	if r.ProviderName != "" {
 		el.CreateAttr("ProviderName", r.ProviderName)
+	}
+	return el
+}
+
+// Element returns an etree.Element representing the object
+// Element returns an etree.Element representing the object in XML form.
+func (r *LogoutRequest) Element() *etree.Element {
+	el := etree.NewElement("samlp:LogoutRequest")
+	el.CreateAttr("xmlns:saml", "urn:oasis:names:tc:SAML:2.0:assertion")
+	el.CreateAttr("xmlns:samlp", "urn:oasis:names:tc:SAML:2.0:protocol")
+	el.CreateAttr("ID", r.ID)
+	el.CreateAttr("Version", r.Version)
+	el.CreateAttr("IssueInstant", r.IssueInstant.Format(timeFormat))
+	if r.Reason != "" {
+		el.CreateAttr("Reason", r.Reason)
+	}
+	if r.Destination() != "" {
+		el.CreateAttr("Destination", r.Destination())
+	}
+	if r.NameID != nil {
+		el.AddChild(r.NameID.Element())
+	}
+	if r.SessionIndex != "" {
+		el.CreateAttr("SessionIndex", r.SessionIndex)
+	}
+	if r.Signature != nil {
+		el.AddChild(r.Signature)
 	}
 	return el
 }
