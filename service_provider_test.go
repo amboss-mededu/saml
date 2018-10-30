@@ -3,7 +3,6 @@ package saml
 import (
 	"encoding/base64"
 	"encoding/xml"
-	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -101,6 +100,7 @@ func (test *ServiceProviderTest) TestCanSetAuthenticationNameIDFormat(c *C) {
 	c.Assert(*req.NameIDPolicy.Format, Equals, string(EmailAddressNameIDFormat))
 }
 
+/*
 func (test *ServiceProviderTest) TestMakeLogoutRequest(c *C) {
 	fmt.Println("JOSELD - TEST")
 	s := ServiceProvider{
@@ -122,7 +122,7 @@ func (test *ServiceProviderTest) TestMakeLogoutRequest(c *C) {
 	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	c.Assert(err, IsNil)
 }
-
+*/
 func (test *ServiceProviderTest) TestCanProduceMetadata(c *C) {
 	s := ServiceProvider{
 		Key:         test.Key,

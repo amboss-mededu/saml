@@ -11,7 +11,7 @@ import (
 )
 
 type SAMLRequest interface {
-	Destination() string
+	getDestination() string
 	Post(relayState string) []byte
 	Redirect(relayState string) *url.URL
 	Element() *etree.Element
@@ -27,7 +27,7 @@ type AuthnRequest struct {
 	ID           string    `xml:",attr"`
 	Version      string    `xml:",attr"`
 	IssueInstant time.Time `xml:",attr"`
-	destination  string    `xml:",attr"`
+	Destination  string    `xml:",attr"`
 	Consent      string    `xml:",attr"`
 	Issuer       *Issuer   `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
 	Signature    *etree.Element
@@ -54,19 +54,19 @@ type LogoutRequest struct {
 	Version      string    `xml:",attr"`
 	IssueInstant time.Time `xml:",attr"`
 	Reason       string    `xml:",attr"`
-	destination  string    `xml:",attr"`
+	Destination  string    `xml:",attr"`
 
 	NameID       *NameID `xml:"urn:oasis:names:tc:SAML:2.0:assertion NameID"`
 	SessionIndex string  `xml:"urn:oasis:names:tc:SAML:2.0:assertion SessionIndex"`
 	Signature    *etree.Element
 }
 
-func (r *AuthnRequest) Destination() string {
-	return r.destination
+func (r *AuthnRequest) getDestination() string {
+	return r.Destination
 }
 
-func (r *LogoutRequest) Destination() string {
-	return r.destination
+func (r *LogoutRequest) getDestination() string {
+	return r.Destination
 }
 
 // Element returns an etree.Element representing the object
@@ -78,8 +78,8 @@ func (r *AuthnRequest) Element() *etree.Element {
 	el.CreateAttr("ID", r.ID)
 	el.CreateAttr("Version", r.Version)
 	el.CreateAttr("IssueInstant", r.IssueInstant.Format(timeFormat))
-	if r.Destination() != "" {
-		el.CreateAttr("Destination", r.Destination())
+	if r.getDestination() != "" {
+		el.CreateAttr("Destination", r.getDestination())
 	}
 	if r.Consent != "" {
 		el.CreateAttr("Consent", r.Consent)
@@ -141,8 +141,8 @@ func (r *LogoutRequest) Element() *etree.Element {
 	if r.Reason != "" {
 		el.CreateAttr("Reason", r.Reason)
 	}
-	if r.Destination() != "" {
-		el.CreateAttr("Destination", r.Destination())
+	if r.Destination != "" {
+		el.CreateAttr("Destination", r.Destination)
 	}
 	if r.NameID != nil {
 		el.AddChild(r.NameID.Element())

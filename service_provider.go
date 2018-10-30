@@ -194,7 +194,7 @@ func redirect(req SAMLRequest, relayState string) *url.URL {
 	w2.Close()
 	w1.Close()
 
-	rv, _ := url.Parse(req.Destination())
+	rv, _ := url.Parse(req.getDestination())
 
 	query := rv.Query()
 	query.Set("SAMLRequest", string(w.Bytes()))
@@ -279,7 +279,7 @@ func (sp *ServiceProvider) MakeAuthenticationRequest(idpURL string) (*AuthnReque
 	allowCreate := true
 	req := AuthnRequest{
 		AssertionConsumerServiceURL: sp.AcsURL.String(),
-		destination:                 idpURL,
+		Destination:                 idpURL,
 		ProtocolBinding:             HTTPPostBinding, // default binding for the response
 		ID:                          fmt.Sprintf("id-%x", randomBytes(20)),
 		IssueInstant:                TimeNow(),
@@ -302,7 +302,7 @@ func (sp *ServiceProvider) MakeAuthenticationRequest(idpURL string) (*AuthnReque
 // MakeLogoutRequest produces a new LogoutRequest object for idpURL.
 func (sp *ServiceProvider) MakeLogoutRequest(idpURL string, userID string, sessionIndex string) (*LogoutRequest, error) {
 	req := LogoutRequest{
-		destination:  idpURL,
+		Destination:  idpURL,
 		ID:           fmt.Sprintf("id-%x", randomBytes(20)),
 		IssueInstant: TimeNow(),
 		Version:      "2.0",
@@ -362,7 +362,7 @@ func post(req SAMLRequest, relayState string) []byte {
 		SAMLRequest string
 		RelayState  string
 	}{
-		URL:         req.Destination(),
+		URL:         req.getDestination(),
 		SAMLRequest: encodedReqBuf,
 		RelayState:  relayState,
 	}
