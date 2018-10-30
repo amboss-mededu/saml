@@ -100,29 +100,24 @@ func (test *ServiceProviderTest) TestCanSetAuthenticationNameIDFormat(c *C) {
 	c.Assert(*req.NameIDPolicy.Format, Equals, string(EmailAddressNameIDFormat))
 }
 
-/*
-func (test *ServiceProviderTest) TestMakeLogoutRequest(c *C) {
-	fmt.Println("JOSELD - TEST")
+func (test *ServiceProviderTest) TestCanSetNameIDMakeLogoutRequest(c *C) {
 	s := ServiceProvider{
 		Key:         test.Key,
 		Certificate: test.Certificate,
 		MetadataURL: mustParseURL("https://15661444.ngrok.io/saml2/metadata"),
 		AcsURL:      mustParseURL("https://15661444.ngrok.io/saml2/acs"),
+		LogoutURL:   mustParseURL("https://example.com/saml2/logout"),
 	}
 
-	// defaults to "transient"
-	fmt.Println("JOSELD - TEST")
 	var idpURL, userID, sessionIndex string
 	idpURL = ""
-	userID = "josedelamora@invisionapp.com"
+	userID = "userid@invisionapp.com"
 	sessionIndex = "test-121"
 	req, err := s.MakeLogoutRequest(idpURL, userID, sessionIndex)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	fmt.Println(req)
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	c.Assert(err, IsNil)
+	c.Assert(req.NameID.Value, Equals, userID)
 }
-*/
+
 func (test *ServiceProviderTest) TestCanProduceMetadata(c *C) {
 	s := ServiceProvider{
 		Key:         test.Key,
