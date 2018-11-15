@@ -59,6 +59,7 @@ type LogoutRequest struct {
 
 	NameID       *NameID       `xml:"urn:oasis:names:tc:SAML:2.0:assertion NameID"`
 	SessionIndex *SessionIndex `xml:"urn:oasis:names:tc:SAML:2.0:assertion SessionIndex"`
+	Issuer       *Issuer       `xml:"urn:oasis:names:tc:SAML:2.0:assertion Issuer"`
 	Signature    *etree.Element
 }
 
@@ -150,6 +151,9 @@ func (r *LogoutRequest) Element() *etree.Element {
 	}
 	if r.SessionIndex != nil {
 		el.AddChild(r.SessionIndex.Element())
+	}
+	if r.Issuer != nil {
+		el.AddChild(r.Issuer.Element())
 	}
 	if r.ProtocolBinding != "" {
 		el.CreateAttr("ProtocolBinding", r.ProtocolBinding)

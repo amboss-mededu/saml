@@ -360,11 +360,18 @@ func (sp *ServiceProvider) MakeLogoutRequest(logoutURL string, userID string, se
 		ID:              fmt.Sprintf("id-%x", randomBytes(20)),
 		IssueInstant:    TimeNow(),
 		Version:         "2.0",
-		NameID: &NameID{
+		Issuer: &Issuer{
 			Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",
+			Value:  sp.MetadataURL.String(),
+		},
+		NameID: &NameID{
+			Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified",
 			//NameQualifier:   req.IDP.Metadata().EntityID,
 			//SPNameQualifier: req.ServiceProviderMetadata.EntityID,
 			Value: userID,
+		},
+		SessionIndex: &SessionIndex{
+			Value: sessionIndex,
 		},
 	}
 
