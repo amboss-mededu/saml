@@ -201,7 +201,7 @@ func (test *ServiceProviderTest) TestCanProducePostRequest(c *C) {
 	err := xml.Unmarshal([]byte(test.IDPMetadata), &s.IDPMetadata)
 	c.Assert(err, IsNil)
 
-	form, err := s.MakePostAuthenticationRequest("relayState")
+	form, reqID, err := s.MakePostAuthenticationRequest("relayState")
 	c.Assert(err, IsNil)
 
 	c.Assert(string(form), Equals, ``+

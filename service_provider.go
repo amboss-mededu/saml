@@ -381,24 +381,39 @@ func (sp *ServiceProvider) MakeLogoutRequest(logoutURL string, userID string, se
 // MakePostAuthenticationRequest creates a SAML authentication request using
 // the HTTP-POST binding. It returns HTML text representing an HTML form that
 // can be sent presented to a browser to initiate the login process.
-func (sp *ServiceProvider) MakePostAuthenticationRequest(relayState string) ([]byte, error) {
+func (sp *ServiceProvider) MakePostAuthenticationRequest(relayState string) ([]byte, string, error) {
 	req, err := sp.MakeAuthenticationRequest(sp.GetSSOBindingLocation(HTTPPostBinding))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return req.Post(relayState), nil
+
+	form, reqID := req.Post(relayState)
+	return form, reqID, nil
+}
+
+// MakePostLogoutRequest creates a SAML authentication request using
+// the HTTP-POST binding. It returns HTML text representing an HTML form that
+// can be sent presented to a browser to initiate the login process.
+func (sp *ServiceProvider) MakePostLogoutRequest(userID, sessionIndex, relayState string) ([]byte, string, error) {
+	req, err := sp.MakeLogoutRequest(sp.GetSLOBindingLocation(HTTPPostBinding), userID, sessionIndex)
+	if err != nil {
+		return nil, "", err
+	}
+
+	form, reqID := req.Post(relayState)
+	return form, reqID, nil
 }
 
 // Post returns an HTML form suitable for using the HTTP-POST binding with the request
-func (req *AuthnRequest) Post(relayState string) []byte {
+func (req *AuthnRequest) Post(relayState string) (form []byte, requestID string) {
 	return post(req, relayState)
 }
 
-func (req *LogoutRequest) Post(relayState string) []byte {
+func (req *LogoutRequest) Post(relayState string) (form []byte, requestID string) {
 	return post(req, relayState)
 }
 
-func post(req SAMLRequest, relayState string) []byte {
+func post(req SAMLRequest, relayState string) (form []byte, requestID string) {
 	doc := etree.NewDocument()
 	doc.SetRoot(req.Element())
 	reqBuf, err := doc.WriteToBytes()
@@ -407,14 +422,16 @@ func post(req SAMLRequest, relayState string) []byte {
 	}
 	encodedReqBuf := base64.StdEncoding.EncodeToString(reqBuf)
 
-	tmpl := template.Must(template.New("saml-post-form").Parse(`` +
+	tmpl := template.Must(template.New("saml-post-form.html").Parse(`` +
+		`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>` +
 		`<form method="post" action="{{.URL}}" id="SAMLRequestForm">` +
 		`<input type="hidden" name="SAMLRequest" value="{{.SAMLRequest}}" />` +
 		`<input type="hidden" name="RelayState" value="{{.RelayState}}" />` +
-		`<input id="SAMLSubmitButton" type="submit" value="Submit" />` +
+		`<input id="SAMLSubmitButton" type="submit" value="continue" />` +
 		`</form>` +
 		`<script>document.getElementById('SAMLSubmitButton').style.visibility="hidden";</script>` +
-		`<script>document.getElementById('SAMLRequestForm').submit();</script>`))
+		`<script>document.getElementById('SAMLRequestForm').submit();</script>` +
+		`</<body></html>`))
 	data := struct {
 		URL         string
 		SAMLRequest string
@@ -426,11 +443,10 @@ func post(req SAMLRequest, relayState string) []byte {
 	}
 
 	rv := bytes.Buffer{}
-	if err := tmpl.Execute(&rv, data); err != nil {
+	if err := tmpl.ExecuteTemplate(&rv, "saml-post-form.html", data); err != nil {
 		panic(err)
 	}
-
-	return rv.Bytes()
+	return rv.Bytes(), req.getID()
 }
 
 // AssertionAttributes is a list of AssertionAttribute

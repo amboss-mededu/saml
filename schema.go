@@ -12,7 +12,8 @@ import (
 
 type SAMLRequest interface {
 	getDestination() string
-	Post(relayState string) []byte
+	getID() string
+	Post(relayState string) (form []byte, reqID string)
 	Redirect(relayState string) *url.URL
 	Element() *etree.Element
 }
@@ -69,6 +70,14 @@ func (r *AuthnRequest) getDestination() string {
 
 func (r *LogoutRequest) getDestination() string {
 	return r.Destination
+}
+
+func (r *AuthnRequest) getID() string {
+	return r.ID
+}
+
+func (r *LogoutRequest) getID() string {
+	return r.ID
 }
 
 // Element returns an etree.Element representing the object
