@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/beevik/etree"
@@ -528,7 +529,7 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 
 	audienceRestrictionsValid := false
 	for _, audienceRestriction := range assertion.Conditions.AudienceRestrictions {
-		if audienceRestriction.Audience.Value == sp.MetadataURL.String() {
+		if strings.Contains(sp.MetadataURL.String(), audienceRestriction.Audience.Value) {
 			audienceRestrictionsValid = true
 		}
 	}
