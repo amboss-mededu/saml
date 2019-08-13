@@ -612,6 +612,42 @@ func (test *ServiceProviderTest) TestInvalidResponses(c *C) {
 	c.Assert(err.(*InvalidResponseError).PrivateErr, ErrorMatches, "cannot validate signature on Response: asn1: structure error: tags don't match .*")
 }
 
+func (test *ServiceProviderTest) TestValidAssertions(c *C) {
+	s := ServiceProvider{
+		Key:         test.Key,
+		Certificate: test.Certificate,
+		MetadataURL: mustParseURL("https://15661444.ngrok.io/saml2/metadata"),
+		AcsURL:      mustParseURL("https://15661444.ngrok.io/saml2/acs"),
+		IDPMetadata: &EntityDescriptor{},
+	}
+	err := xml.Unmarshal([]byte(test.IDPMetadata), &s.IDPMetadata)
+	c.Assert(err, IsNil)
+
+	req := http.Request{PostForm: url.Values{}}
+	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
+	s.IDPMetadata.IDPSSODescriptors[0].KeyDescriptors[0].KeyInfo.Certificate = "invalid"
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	assertionBuf := []byte(err.(*InvalidResponseError).Response)
+
+	assertion := Assertion{}
+	err = xml.Unmarshal(assertionBuf, &assertion)
+	c.Assert(err, IsNil)
+
+	// full metadata url
+	assertion.Conditions.AudienceRestrictions[0].Audience.Value = "https://15661444.ngrok.io/saml2/metadata"
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
+	c.Assert(err, IsNil)
+	assertion = Assertion{}
+	xml.Unmarshal(assertionBuf, &assertion)
+
+	// url without path
+	assertion.Conditions.AudienceRestrictions[0].Audience.Value = "https://15661444.ngrok.io"
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
+	c.Assert(err, IsNil)
+	assertion = Assertion{}
+	xml.Unmarshal(assertionBuf, &assertion)
+}
+
 func (test *ServiceProviderTest) TestInvalidAssertions(c *C) {
 	s := ServiceProvider{
 		Key:         test.Key,
@@ -684,7 +720,14 @@ func (test *ServiceProviderTest) TestInvalidAssertions(c *C) {
 
 	assertion.Conditions.AudienceRestrictions[0].Audience.Value = "not/our/metadata/url"
 	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
-	c.Assert(err.Error(), Equals, "Conditions AudienceRestriction does not contain \"https://15661444.ngrok.io/saml2/metadata\"")
+	c.Assert(err.Error(), Equals, "Conditions AudienceRestriction is not prefix of \"https://15661444.ngrok.io/saml2/metadata\"")
+	assertion = Assertion{}
+	xml.Unmarshal(assertionBuf, &assertion)
+
+	// wrong http scheme not allowed
+	assertion.Conditions.AudienceRestrictions[0].Audience.Value = "http://15661444.ngrok.io"
+	err = s.validateAssertion(&assertion, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, TimeNow(), false)
+	c.Assert(err.Error(), Equals, "Conditions AudienceRestriction is not prefix of \"https://15661444.ngrok.io/saml2/metadata\"")
 	assertion = Assertion{}
 	xml.Unmarshal(assertionBuf, &assertion)
 }

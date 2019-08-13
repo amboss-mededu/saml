@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/beevik/etree"
@@ -528,12 +529,18 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 
 	audienceRestrictionsValid := false
 	for _, audienceRestriction := range assertion.Conditions.AudienceRestrictions {
-		if audienceRestriction.Audience.Value == sp.MetadataURL.String() {
+		// this has been changed from the original implementation which forces the
+		// AudienceRestriction to equal the metadata URL. That is not a requirement
+		// in the SAML spec and does not meet our requirements. V6 was implemented
+		// such that the AudienceRestriction is just the scheme and host of the target
+		// company (containing its unique subdomain). In order to maintain backwards
+		// compatibility, we will allow both forms of the URL with and without the path.
+		if strings.HasPrefix(sp.MetadataURL.String(), audienceRestriction.Audience.Value) {
 			audienceRestrictionsValid = true
 		}
 	}
 	if !audienceRestrictionsValid {
-		return fmt.Errorf("Conditions AudienceRestriction does not contain %q", sp.MetadataURL.String())
+		return fmt.Errorf("Conditions AudienceRestriction is not prefix of %q", sp.MetadataURL.String())
 	}
 	return nil
 }
