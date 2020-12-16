@@ -19,6 +19,8 @@ import (
 	"github.com/beevik/etree"
 	"github.com/crewjam/saml/logger"
 	"github.com/crewjam/saml/xmlenc"
+
+	xrv "github.com/mattermost/xml-roundtrip-validator"
 	dsig "github.com/russellhaering/goxmldsig"
 	"github.com/russellhaering/goxmldsig/etreeutils"
 )
@@ -390,12 +392,20 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 	}
 	retErr.Response = string(rawResponseBuf)
 
+	// XML Validation using https://github.com/mattermost/xml-roundtrip-validator;
+	// CVE-2020-29509 (unstable attributes), CVE-2020-29510 (unstable directives), CVE-2020-29511 (unstable elements)
+	if err := xrv.Validate(strings.NewReader(string(rawResponseBuf))); err != nil {
+		retErr.PrivateErr = fmt.Errorf("invalid xml response: %w", err)
+		return nil, requestID, retErr
+	}
+
 	// do some validation first before we decrypt
 	resp := Response{}
 	if err := xml.Unmarshal(rawResponseBuf, &resp); err != nil {
-		retErr.PrivateErr = fmt.Errorf("cannot unmarshal response: %s", err)
+		retErr.PrivateErr = fmt.Errorf("cannot unmarshal response: %w", err)
 		return nil, requestID, retErr
 	}
+
 	if resp.Destination != sp.AcsURL.String() {
 		retErr.PrivateErr = fmt.Errorf("`Destination` does not match AcsURL (expected %q)", sp.AcsURL.String())
 		return nil, requestID, retErr
