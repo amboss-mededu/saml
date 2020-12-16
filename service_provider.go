@@ -392,6 +392,7 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 	}
 	retErr.Response = string(rawResponseBuf)
 
+	// XML Validation
 	if err := xrv.Validate(strings.NewReader(string(rawResponseBuf))); err != nil {
 		retErr.PrivateErr = fmt.Errorf("invalid xml response: %s", err)
 		return nil, requestID, retErr
