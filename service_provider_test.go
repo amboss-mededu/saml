@@ -570,6 +570,24 @@ func (test *ServiceProviderTest) TestInvalidResponses(c *C) {
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "`Destination` does not match AcsURL (expected \"https://wrong/saml2/acs\")")
 	s.AcsURL = mustParseURL("https://15661444.ngrok.io/saml2/acs")
 
+	docs := []string{
+		`<Response><! <<!-- -->!-- x --> y></Response>`,
+		`<x::Root/>`,
+		`<Root><x::Element></::Element></Root>`,
+		`<Root><Element ::attr="foo"></Element></Root>`,
+		`<Root></x::Element></Root>`,
+		`<x:>`,
+		`<Root :="value"/>`,
+		`<Root x:="value"/>`,
+		`<Root xmlns="x" xmlns:="y"></Root>`,
+	}
+
+	for _, doc := range docs {
+		req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(doc)))
+		_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+		c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Matches, "invalid xml response: .*")
+	}
+
 	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
 	_, _, err = s.ParseResponse(&req, []string{"wrongRequestID"}, false)
 	c.Assert(err.(*InvalidResponseError).PrivateErr.Error(), Equals, "`InResponseTo` does not match any of the possible request IDs (expected [wrongRequestID])")
