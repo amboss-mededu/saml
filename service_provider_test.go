@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"net/http"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -542,6 +543,42 @@ func (test *ServiceProviderTest) TestCanParseResponse(c *C) {
 			},
 		},
 	})
+}
+
+func (test *ServiceProviderTest) TestAllowIDPInitiated(c *C) {
+	s := ServiceProvider{
+		Key:               test.Key,
+		Certificate:       test.Certificate,
+		MetadataURL:       mustParseURL("https://15661444.ngrok.io/saml2/metadata"),
+		AcsURL:            mustParseURL("https://15661444.ngrok.io/saml2/acs"),
+		IDPMetadata:       &EntityDescriptor{},
+		AllowIDPInitiated: true,
+	}
+	err := xml.Unmarshal([]byte(test.IDPMetadata), &s.IDPMetadata)
+	c.Assert(err, IsNil)
+
+	req := http.Request{PostForm: url.Values{}}
+	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(test.SamlResponse)))
+	_, _, err = s.ParseResponse(&req, []string{}, false)
+	c.Assert(err, IsNil)
+}
+
+func (test *ServiceProviderTest) TestNoResponseDestination(c *C) {
+	s := ServiceProvider{
+		Key:         test.Key,
+		Certificate: test.Certificate,
+		MetadataURL: mustParseURL("https://15661444.ngrok.io/saml2/metadata"),
+		AcsURL:      mustParseURL("https://15661444.ngrok.io/saml2/acs"),
+		IDPMetadata: &EntityDescriptor{},
+	}
+	err := xml.Unmarshal([]byte(test.IDPMetadata), &s.IDPMetadata)
+	c.Assert(err, IsNil)
+
+	req := http.Request{PostForm: url.Values{}}
+	samlResponse := strings.Replace(test.SamlResponse, ` Destination="https://15661444.ngrok.io/saml2/acs"`, "", 1)
+	req.PostForm.Set("SAMLResponse", base64.StdEncoding.EncodeToString([]byte(samlResponse)))
+	_, _, err = s.ParseResponse(&req, []string{"id-9e61753d64e928af5a7a341a97f420c9"}, false)
+	c.Assert(err, IsNil)
 }
 
 func (test *ServiceProviderTest) TestInvalidResponses(c *C) {

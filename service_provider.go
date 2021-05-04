@@ -78,6 +78,10 @@ type ServiceProvider struct {
 
 	// Logger is used to log messages for example in the event of errors
 	Logger logger.Interface
+
+	// Backport: Bypass `InResponseTo` validation to allow IDP-Initiated request that don't include request IDs.
+	// See: https://invisionapp.atlassian.net/browse/AUTH-2414
+	AllowIDPInitiated bool
 }
 
 // MaxIssueDelay is the longest allowed time between when a SAML assertion is
@@ -406,18 +410,35 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 		return nil, requestID, retErr
 	}
 
-	if resp.Destination != sp.AcsURL.String() {
+	// AUTH-2414: If the message is signed, the Destination XML attribute in the root SAML element of the protocol
+	// message MUST contain the URL to which the sender has instructed the user agent to deliver the
+	// message. The recipient MUST then verify that the value matches the location at which the message has
+	// been received. Ref: http://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf @ 3.4.5.2
+	//
+	// Unfortunately, PingFederate does not send Destination, but Okta and OneLogin do.
+	// This will check Destination only if provided. The Recipient is checked to the ACSURL in validateAssertion()
+	// so this particular check is not terribly important.
+	if resp.Destination != "" && resp.Destination != sp.AcsURL.String() {
 		retErr.PrivateErr = fmt.Errorf("`Destination` does not match AcsURL (expected %q)", sp.AcsURL.String())
 		return nil, requestID, retErr
 	}
 
 	requestIDvalid := false
-	for _, possibleRequestID := range possibleRequestIDs {
-		if resp.InResponseTo == possibleRequestID {
-			requestIDvalid = true
-			requestID = possibleRequestID
+
+	// AUTH-2414: This will allow IDP-Initiated requests to succeed if possibleRequestIDs is empty.
+	// This is a typical case with PingFederate.
+	// Ref: https://github.com/crewjam/saml/issues/151#issuecomment-435626671
+	if sp.AllowIDPInitiated {
+		requestIDvalid = true
+	} else {
+		for _, possibleRequestID := range possibleRequestIDs {
+			if resp.InResponseTo == possibleRequestID {
+				requestIDvalid = true
+				requestID = possibleRequestID
+			}
 		}
 	}
+
 	if !requestIDvalid {
 		retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
 		return nil, requestID, retErr
@@ -514,14 +535,37 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 	}
 	for _, subjectConfirmation := range assertion.Subject.SubjectConfirmations {
 		requestIDvalid := false
-		for _, possibleRequestID := range possibleRequestIDs {
-			if subjectConfirmation.SubjectConfirmationData.InResponseTo == possibleRequestID {
-				requestIDvalid = true
-				break
+
+		// AUTH-2414: Backported from upstream to fix PingFederate.
+		// Ref: https://github.com/floren/saml/commit/d9398e15219a6ed1992da0f5acb4848bf4ea9b40
+		//
+		// We *DO NOT* validate InResponseTo when AllowIDPInitiated is set. Here's why:
+		//
+		// The SAML specification does not provide clear guidance for handling InResponseTo for IDP-initiated
+		// requests where there is no request to be in response to. The specification says:
+		//
+		//   InResponseTo [Optional]
+		//       The ID of a SAML protocol message in response to which an attesting entity can present the
+		//       assertion. For example, this attribute might be used to correlate the assertion to a SAML
+		//       request that resulted in its presentation.
+		//
+		// The initial thought was that we should specify a single empty string in possibleRequestIDs for IDP-initiated
+		// requests so that we would ensure that an InResponseTo was *not* provided in those cases where it wasn't
+		// expected. Even that turns out to be frustrating for users. And in practice some IDPs (e.g. Rippling)
+		// set a specific non-empty value for InResponseTo in IDP-initiated requests.
+		//
+		// Finally, it is unclear that there is significant security value in checking InResponseTo when we allow
+		// IDP initiated assertions.
+		if !sp.AllowIDPInitiated {
+			for _, possibleRequestID := range possibleRequestIDs {
+				if subjectConfirmation.SubjectConfirmationData.InResponseTo == possibleRequestID {
+					requestIDvalid = true
+					break
+				}
 			}
-		}
-		if !requestIDvalid {
-			return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
+			if !requestIDvalid {
+				return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
+			}
 		}
 		if subjectConfirmation.SubjectConfirmationData.Recipient != sp.AcsURL.String() {
 			return fmt.Errorf("SubjectConfirmation Recipient is not %s", sp.AcsURL.String())
