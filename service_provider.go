@@ -435,7 +435,11 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 	// AUTH-2414: This will allow IDP-Initiated requests to succeed if possibleRequestIDs is empty.
 	// This is a typical case with PingFederate.
 	// Ref: https://github.com/crewjam/saml/issues/151#issuecomment-435626671
-	if !requestIDvalid && sp.AllowIDPInitiated == false {
+	if !requestIDvalid && sp.AllowIDPInitiated == true {
+		requestIDvalid = true
+	}
+
+	if !requestIDvalid {
 		retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
 		return nil, requestID, retErr
 	}
@@ -559,7 +563,11 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 		//
 		// Finally, it is unclear that there is significant security value in checking InResponseTo when we allow
 		// IDP initiated assertions.
-		if !requestIDvalid && sp.AllowIDPInitiated == false {
+		if !requestIDvalid && sp.AllowIDPInitiated == true {
+			requestIDvalid = true
+		}
+
+		if !requestIDvalid {
 			return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
 		}
 		if subjectConfirmation.SubjectConfirmationData.Recipient != sp.AcsURL.String() {
