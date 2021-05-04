@@ -52,6 +52,6 @@ func (test *TimeTest) TestParse(c *C) {
 	{
 		var t RelaxedTime
 		err := t.UnmarshalText([]byte("1981-02-03T14:15:16Z04:00"))
-		c.Assert(err, ErrorMatches, "parsing time \"1981-02-03T14:15:16Z04:00\": extra text: 04:00")
+		c.Assert(err, ErrorMatches, "parsing time \"1981-02-03T14:15:16Z04:00\": extra text: \"04:00\"")
 	}
 }
