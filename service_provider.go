@@ -425,21 +425,17 @@ func (sp *ServiceProvider) ParseResponse(req *http.Request, possibleRequestIDs [
 
 	requestIDvalid := false
 
-	// AUTH-2414: This will allow IDP-Initiated requests to succeed if possibleRequestIDs is empty.
-	// This is a typical case with PingFederate.
-	// Ref: https://github.com/crewjam/saml/issues/151#issuecomment-435626671
-	if sp.AllowIDPInitiated {
-		requestIDvalid = true
-	} else {
-		for _, possibleRequestID := range possibleRequestIDs {
-			if resp.InResponseTo == possibleRequestID {
-				requestIDvalid = true
-				requestID = possibleRequestID
-			}
+	for _, possibleRequestID := range possibleRequestIDs {
+		if resp.InResponseTo == possibleRequestID {
+			requestIDvalid = true
+			requestID = possibleRequestID
 		}
 	}
 
-	if !requestIDvalid {
+	// AUTH-2414: This will allow IDP-Initiated requests to succeed if possibleRequestIDs is empty.
+	// This is a typical case with PingFederate.
+	// Ref: https://github.com/crewjam/saml/issues/151#issuecomment-435626671
+	if !requestIDvalid && sp.AllowIDPInitiated == false {
 		retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
 		return nil, requestID, retErr
 	}
@@ -536,6 +532,13 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 	for _, subjectConfirmation := range assertion.Subject.SubjectConfirmations {
 		requestIDvalid := false
 
+		for _, possibleRequestID := range possibleRequestIDs {
+			if subjectConfirmation.SubjectConfirmationData.InResponseTo == possibleRequestID {
+				requestIDvalid = true
+				break
+			}
+		}
+
 		// AUTH-2414: Backported from upstream to fix PingFederate.
 		// Ref: https://github.com/floren/saml/commit/d9398e15219a6ed1992da0f5acb4848bf4ea9b40
 		//
@@ -556,16 +559,8 @@ func (sp *ServiceProvider) validateAssertion(assertion *Assertion, possibleReque
 		//
 		// Finally, it is unclear that there is significant security value in checking InResponseTo when we allow
 		// IDP initiated assertions.
-		if !sp.AllowIDPInitiated {
-			for _, possibleRequestID := range possibleRequestIDs {
-				if subjectConfirmation.SubjectConfirmationData.InResponseTo == possibleRequestID {
-					requestIDvalid = true
-					break
-				}
-			}
-			if !requestIDvalid {
-				return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
-			}
+		if !requestIDvalid && sp.AllowIDPInitiated == false {
+			return fmt.Errorf("SubjectConfirmation one of the possible request IDs (%v)", possibleRequestIDs)
 		}
 		if subjectConfirmation.SubjectConfirmationData.Recipient != sp.AcsURL.String() {
 			return fmt.Errorf("SubjectConfirmation Recipient is not %s", sp.AcsURL.String())
