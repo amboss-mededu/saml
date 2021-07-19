@@ -9,7 +9,7 @@ import (
 
 	"github.com/zenazn/goji/web"
 
-	"github.com/crewjam/saml"
+	"github.com/amboss-mededu/saml"
 )
 
 // Service represents a configured SP for whom this IDP provides authentication services.

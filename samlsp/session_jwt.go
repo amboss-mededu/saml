@@ -8,7 +8,7 @@ import (
 
 	"github.com/form3tech-oss/jwt-go"
 
-	"github.com/crewjam/saml"
+	"github.com/amboss-mededu/saml"
 )
 
 const (
