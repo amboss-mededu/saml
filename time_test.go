@@ -1,6 +1,7 @@
 package saml
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -54,8 +55,8 @@ func TestRelaxedTimeParse(t *testing.T) {
 	}
 	{
 		var rt RelaxedTime
+		expectedErr := errors.New("parsing time \"1981-02-03T14:15:16Z04:00\": extra text: 04:00")
 		err := rt.UnmarshalText([]byte("1981-02-03T14:15:16Z04:00"))
-		assert.Check(t, is.Error(err,
-			"parsing time \"1981-02-03T14:15:16Z04:00\": extra text: \"04:00\""))
+		assert.Error(t, expectedErr, err.Error())
 	}
 }
