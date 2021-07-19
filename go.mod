@@ -1,4 +1,4 @@
-module github.com/InVisionApp/saml
+module github.com/amboss-mededu/saml
 
 go 1.13
 
