@@ -3,7 +3,6 @@ package xmlenc
 import (
 	"crypto/aes"
 	"crypto/cipher"
-
 	"github.com/beevik/etree"
 )
 
@@ -34,30 +33,37 @@ func (e GCM) Encrypt(key interface{}, plaintext []byte) (*etree.Element, error) 
 // Decryptor for the EncryptedKey element. Otherwise, `key` must be a []byte of
 // length KeySize().
 func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
-	block, err := aes.NewCipher(key.([]byte))
+	keyBuf, ok := key.([]byte)
+	if !ok {
+		return nil, ErrIncorrectKeyType("[]byte")
+	}
+	if len(keyBuf) != e.KeySize() {
+		return nil, ErrIncorrectKeyLength(e.KeySize())
+	}
+
+	block, err := e.cipher(keyBuf)
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 
 	if encryptedKeyEl := ciphertextEl.FindElement("./KeyInfo/EncryptedKey"); encryptedKeyEl != nil {
 		var err error
-		key, err = Decrypt(key, encryptedKeyEl)
+		ciphertext, err := Decrypt(key, encryptedKeyEl)
 		if err != nil {
 			return nil, err
 		}
+		plainText, err := aesgcm.Open(nil, nil, ciphertext, nil)
+		if err != nil {
+			return nil, err
+		}
+		return plainText, nil
 	}
-
-	plainText, err := aesgcm.Open(nil, nil, key.([]byte), nil)
-	if err != nil {
-		return []byte(""), err
-	}
-
-	return plainText, nil
+	return nil, err
 }
 
 var (
