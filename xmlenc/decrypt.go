@@ -55,7 +55,6 @@ func (e ErrIncorrectKeyType) Error() string {
 // If the data are encrypted with PKCS1v15 or RSA-OAEP-MGF1P then key should
 // be a *rsa.PrivateKey.
 func Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
-	fmt.Printf("ciphertextEl Value: %s\n", ciphertextEl.Text())
 	encryptionMethodEl := ciphertextEl.FindElement("./EncryptionMethod")
 	if encryptionMethodEl == nil {
 		return nil, ErrCannotFindRequiredElement("EncryptionMethod")

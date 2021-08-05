@@ -3,10 +3,8 @@ package xmlenc
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"fmt"
 	"github.com/beevik/etree"
-	"io"
 )
 
 // struct implements Decrypter and Encrypter for block ciphers in struct mode
@@ -41,9 +39,6 @@ func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, erro
 	if encryptedKeyEl := ciphertextEl.FindElement("./KeyInfo/EncryptedKey"); encryptedKeyEl != nil {
 		var err error
 		key, err = Decrypt(key, encryptedKeyEl)
-
-		fmt.Printf("gcm encryptedKeyEl Type: %T\n", encryptedKeyEl)
-		fmt.Printf("gcm encryptedKeyEl Value: %v\n", encryptedKeyEl)
 		if err != nil {
 			return nil, err
 		}
@@ -68,10 +63,13 @@ func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, erro
 		return nil, err
 	}
 
-	nonce := make([]byte, 12)
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
+	//nonce := make([]byte, aesgcm.NonceSize())
+	//if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	//	return nil, err
+	//}
+	ciphertextByte := []byte(ciphertextEl.Text())
+	nonce := ciphertextByte[:aesgcm.NonceSize()]
+
 
 	plainText, err := aesgcm.Open(nil, nonce, keyBuf, nil)
 	if err != nil {
