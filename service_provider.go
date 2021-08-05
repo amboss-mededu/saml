@@ -691,12 +691,13 @@ func (sp *ServiceProvider) ParseXMLResponse(decodedResponseXML []byte, possibleR
 	// decrypt the response
 	if resp.EncryptedAssertion != nil {
 		doc := etree.NewDocument()
-		fmt.Printf("%s", doc.Text())
-		fmt.Printf("doc Value: %v\n", doc)
+
 		if err := doc.ReadFromBytes(decodedResponseXML); err != nil {
 			retErr.PrivateErr = err
 			return nil, retErr
 		}
+
+		fmt.Printf("decodedResponseXML %s", string(decodedResponseXML))
 
 		// encrypted assertions are part of the signature
 		// before decrypting the response verify that
