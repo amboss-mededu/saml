@@ -61,12 +61,22 @@ func Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
 	if encryptionMethodEl == nil {
 		return nil, ErrCannotFindRequiredElement("EncryptionMethod")
 	}
+	fmt.Printf("encryptionMethodEl Value: %v\n", encryptionMethodEl)
+
 	algorithm := encryptionMethodEl.SelectAttrValue("Algorithm", "")
+	fmt.Printf("algorithm Value: %v\n", algorithm)
+
 	decrypter, ok := decrypters[algorithm]
 	if !ok {
 		return nil, ErrAlgorithmNotImplemented(algorithm)
 	}
-	return decrypter.Decrypt(key, ciphertextEl)
+	fmt.Printf("decrypter Value: %v\n", decrypter)
+	value, err := decrypter.Decrypt(key, ciphertextEl)
+	fmt.Printf("decrypted value value: %v\n", value)
+	if err != nil {
+		fmt.Printf("decrypted err: %s\n", err.Error())
+	}
+	return value, err
 }
 
 func getCiphertext(encryptedKey *etree.Element) ([]byte, error) {
