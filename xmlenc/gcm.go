@@ -3,6 +3,7 @@ package xmlenc
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"fmt"
 	"github.com/beevik/etree"
 )
 
@@ -33,8 +34,12 @@ func (e GCM) Encrypt(key interface{}, plaintext []byte) (*etree.Element, error) 
 // Decryptor for the EncryptedKey element. Otherwise, `key` must be a []byte of
 // length KeySize().
 func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
+	fmt.Printf("Key Type: %T\n", key)
+	fmt.Printf("Key Value: %v\n", key)
 	if encryptedKeyEl := ciphertextEl.FindElement("./KeyInfo/EncryptedKey"); encryptedKeyEl != nil {
 		var err error
+		fmt.Printf("encryptedKeyEl Type: %T\n", encryptedKeyEl)
+		fmt.Printf("encryptedKeyEl Value: %v\n", encryptedKeyEl)
 		key, err = Decrypt(key, encryptedKeyEl)
 		if err != nil {
 			return nil, err
