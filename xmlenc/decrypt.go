@@ -55,28 +55,19 @@ func (e ErrIncorrectKeyType) Error() string {
 // If the data are encrypted with PKCS1v15 or RSA-OAEP-MGF1P then key should
 // be a *rsa.PrivateKey.
 func Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
-	fmt.Printf("Key Type: %T\n", key)
-	fmt.Printf("Key Value: %v\n", key)
+	fmt.Printf("ciphertextEl Type: %T\n", ciphertextEl)
+	fmt.Printf("ciphertextEl Value: %v\n", ciphertextEl)
 	encryptionMethodEl := ciphertextEl.FindElement("./EncryptionMethod")
 	if encryptionMethodEl == nil {
 		return nil, ErrCannotFindRequiredElement("EncryptionMethod")
 	}
-	fmt.Printf("encryptionMethodEl Value: %v\n", encryptionMethodEl)
-
 	algorithm := encryptionMethodEl.SelectAttrValue("Algorithm", "")
-	fmt.Printf("algorithm Value: %v\n", algorithm)
 
 	decrypter, ok := decrypters[algorithm]
 	if !ok {
 		return nil, ErrAlgorithmNotImplemented(algorithm)
 	}
-	fmt.Printf("decrypter Value: %v\n", decrypter)
-	value, err := decrypter.Decrypt(key, ciphertextEl)
-	fmt.Printf("decrypted value value: %v\n", value)
-	if err != nil {
-		fmt.Printf("decrypted err: %s\n", err.Error())
-	}
-	return value, err
+	return decrypter.Decrypt(key, ciphertextEl)
 }
 
 func getCiphertext(encryptedKey *etree.Element) ([]byte, error) {
