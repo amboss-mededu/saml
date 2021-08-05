@@ -70,7 +70,7 @@ func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, erro
 		return nil, err
 	}
 
-	plainText, err := aesgcm.Open(nil, nonce, keyBuf, nil)
+	plainText, err := aesgcm.Open(nonce, nonce, keyBuf, nil)
 	if err != nil {
 		return nil, err
 	}
