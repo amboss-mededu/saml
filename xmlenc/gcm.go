@@ -50,6 +50,7 @@ func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, erro
 	}
 
 	keyBuf, ok := key.([]byte)
+
 	if !ok {
 		return nil, ErrIncorrectKeyType("[]byte")
 	}
@@ -67,19 +68,11 @@ func (e GCM) Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, erro
 		return nil, err
 	}
 
-	if encryptedKeyEl := ciphertextEl.FindElement("./KeyInfo/EncryptedKey"); encryptedKeyEl != nil {
-		var err error
-		ciphertext, err := Decrypt(key, encryptedKeyEl)
-		if err != nil {
-			return nil, err
-		}
-		plainText, err := aesgcm.Open(nil, nil, ciphertext, nil)
-		if err != nil {
-			return nil, err
-		}
-		return plainText, nil
+	plainText, err := aesgcm.Open(nil, nil, keyBuf, nil)
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+	return plainText, nil
 }
 
 var (
