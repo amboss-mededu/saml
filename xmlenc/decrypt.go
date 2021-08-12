@@ -60,6 +60,7 @@ func Decrypt(key interface{}, ciphertextEl *etree.Element) ([]byte, error) {
 		return nil, ErrCannotFindRequiredElement("EncryptionMethod")
 	}
 	algorithm := encryptionMethodEl.SelectAttrValue("Algorithm", "")
+
 	decrypter, ok := decrypters[algorithm]
 	if !ok {
 		return nil, ErrAlgorithmNotImplemented(algorithm)
