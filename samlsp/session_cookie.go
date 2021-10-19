@@ -33,6 +33,9 @@ func (c CookieSessionProvider) CreateSession(w http.ResponseWriter, r *http.Requ
 		c.Domain = domain
 	}
 
+	c.Domain = "45ac-2a02-3032-4-ea71-9d60-4f7f-7586-33ab.eu.ngrok.io"
+	c.Secure = true
+
 	session, err := c.Codec.New(assertion)
 	if err != nil {
 		return err

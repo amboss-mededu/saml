@@ -768,6 +768,201 @@ func (sp *ServiceProvider) ParseXMLResponse(decodedResponseXML []byte, possibleR
 	return assertion, nil
 }
 
+func (sp *ServiceProvider) ParseLogoutRequest(req *http.Request) (*LogoutRequest, error) {
+	now := TimeNow()
+	retErr := &InvalidResponseError{
+		Now:      now,
+		Response: req.URL.Query().Get("SAMLRequest"),
+	}
+
+	samlReq := req.URL.Query().Get("SAMLRequest")
+	rawResponseBuf, err := base64.StdEncoding.DecodeString(samlReq)
+	if err != nil {
+		retErr.PrivateErr = fmt.Errorf("cannot parse base64: %s", err)
+		return nil, retErr
+	}
+	retErr.Response = string(rawResponseBuf)
+
+	rawResponseInflated, _ := inflate(rawResponseBuf)
+	request, err := sp.ParseXMLRequest(rawResponseInflated)
+	if err != nil {
+		return nil, err
+	}
+
+	return request, nil
+}
+
+func inflate(compressed []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	reader := flate.NewReader(bytes.NewReader(compressed))
+
+	_, err := buf.ReadFrom(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (sp *ServiceProvider) ParseXMLRequest(decodedRequestXML []byte) (*LogoutRequest, error) {
+	now := TimeNow()
+	retErr := &InvalidResponseError{
+		Now:      now,
+		Response: string(decodedRequestXML),
+	}
+
+	// ensure that the response XML is well formed before we parse it
+	if err := xrv.Validate(bytes.NewReader(decodedRequestXML)); err != nil {
+		retErr.PrivateErr = fmt.Errorf("invalid xml: %s", err)
+		return nil, retErr
+	}
+	//
+	//// do some validation first before we decrypt
+	//resp := Response{}
+	//if err := xml.Unmarshal(decodedRequestXML, &resp); err != nil {
+	//	retErr.PrivateErr = fmt.Errorf("cannot unmarshal response: %s", err)
+	//	return nil, retErr
+	//}
+	//
+	//if err := sp.validateDestination(decodedRequestXML, &resp); err != nil {
+	//	retErr.PrivateErr = err
+	//	return nil, retErr
+	//}
+	//
+	//requestIDvalid := false
+	//
+	//for _, possibleRequestID := range possibleRequestIDs {
+	//	if resp.InResponseTo == possibleRequestID {
+	//		requestIDvalid = true
+	//	}
+	//}
+	//
+	//if sp.AllowIDPInitiated && !requestIDvalid {
+	//	requestIDvalid = true
+	//}
+	//
+	//if !requestIDvalid {
+	//	retErr.PrivateErr = fmt.Errorf("`InResponseTo` does not match any of the possible request IDs (expected %v)", possibleRequestIDs)
+	//	return nil, retErr
+	//}
+	//
+	//if resp.IssueInstant.Add(MaxIssueDelay).Before(now) {
+	//	retErr.PrivateErr = fmt.Errorf("response IssueInstant expired at %s", resp.IssueInstant.Add(MaxIssueDelay))
+	//	return nil, retErr
+	//}
+	//if !sp.SkipIssuerCheck && resp.Issuer != nil && resp.Issuer.Value != sp.IDPMetadata.EntityID {
+	//	retErr.PrivateErr = fmt.Errorf("response Issuer does not match the IDP metadata (expected %q)", sp.IDPMetadata.EntityID)
+	//	return nil, retErr
+	//}
+	//if resp.Status.StatusCode.Value != StatusSuccess {
+	//	retErr.PrivateErr = ErrBadStatus{Status: resp.Status.StatusCode.Value}
+	//	return nil, retErr
+	//}
+	//
+	//var assertion *Assertion
+	//if resp.EncryptedAssertion == nil {
+	//
+	//	doc := etree.NewDocument()
+	//	if err := doc.ReadFromBytes(decodedRequestXML); err != nil {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//
+	//	// TODO(ross): verify that the namespace is urn:oasis:names:tc:SAML:2.0:protocol
+	//	responseEl := doc.Root()
+	//	if responseEl.Tag != "Response" {
+	//		retErr.PrivateErr = fmt.Errorf("expected to find a response object, not %s", doc.Root().Tag)
+	//		return nil, retErr
+	//	}
+	//
+	//	if err = sp.validateSigned(responseEl); err != nil {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//
+	//	assertion = resp.Assertion
+	//}
+	//
+	//// decrypt the response
+	//if resp.EncryptedAssertion != nil {
+	//	doc := etree.NewDocument()
+	//	if err := doc.ReadFromBytes(decodedRequestXML); err != nil {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//
+	//	// encrypted assertions are part of the signature
+	//	// before decrypting the response verify that
+	//	responseSigned, err := responseIsSigned(doc)
+	//	if err != nil {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//	/* BUG(gus): Disabling this validation because the transforms in goxmldsig v1.1.0 are broken.
+	//	             So even if you have a correct digest it will fail. Once this is fixed, there are PRs,
+	//		     we need to reenable this.
+	//	if responseSigned {
+	//		if err := sp.validateSigned(doc.Root()); err != nil {
+	//			retErr.PrivateErr = err
+	//			return nil, retErr
+	//		}
+	//	}
+	//	*/
+	//
+	//	var key interface{} = sp.Key
+	//	keyEl := doc.FindElement("//EncryptedAssertion/EncryptedKey")
+	//	if keyEl != nil {
+	//		key, err = xmlenc.Decrypt(sp.Key, keyEl)
+	//		if err != nil {
+	//			retErr.PrivateErr = fmt.Errorf("failed to decrypt key from response: %s", err)
+	//			return nil, retErr
+	//		}
+	//	}
+	//
+	//	el := doc.FindElement("//EncryptedAssertion/EncryptedData")
+	//	plaintextAssertion, err := xmlenc.Decrypt(key, el)
+	//	if err != nil {
+	//		retErr.PrivateErr = fmt.Errorf("failed to decrypt response: %s", err)
+	//		return nil, retErr
+	//	}
+	//	retErr.Response = string(plaintextAssertion)
+	//
+	//	// TODO(ross): add test case for this
+	//	if err := xrv.Validate(bytes.NewReader(plaintextAssertion)); err != nil {
+	//		retErr.PrivateErr = fmt.Errorf("plaintext response contains invalid XML: %s", err)
+	//		return nil, retErr
+	//	}
+	//
+	//	doc = etree.NewDocument()
+	//	if err := doc.ReadFromBytes(plaintextAssertion); err != nil {
+	//		retErr.PrivateErr = fmt.Errorf("cannot parse plaintext response %v", err)
+	//		return nil, retErr
+	//	}
+	//
+	//	// the decrypted assertion may be signed too
+	//	// otherwise, a signed response is sufficient
+	//	if err := sp.validateSigned(doc.Root()); err != nil && !responseSigned {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//
+	//	assertion = &Assertion{}
+	//	// Note: plaintextAssertion is known to be safe to parse because
+	//	// plaintextAssertion is unmodified from when xrv.Validate() was called above.
+	//	if err := xml.Unmarshal(plaintextAssertion, assertion); err != nil {
+	//		retErr.PrivateErr = err
+	//		return nil, retErr
+	//	}
+	//}
+	//
+	//if err := sp.validateAssertion(assertion, possibleRequestIDs, now); err != nil {
+	//	retErr.PrivateErr = fmt.Errorf("assertion invalid: %s", err)
+	//	return nil, retErr
+	//}
+
+	return nil, nil
+}
+
 // validateAssertion checks that the conditions specified in assertion match
 // the requirements to accept. If validation fails, it returns an error describing
 // the failure. (The digital signature on the assertion is not checked -- this

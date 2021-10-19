@@ -60,6 +60,11 @@ func (m *Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if r.URL.Path == m.ServiceProvider.SloURL.Path {
+		m.ServeSLO(w, r)
+		return
+	}
+
 	http.NotFoundHandler().ServeHTTP(w, r)
 }
 
@@ -93,6 +98,10 @@ func (m *Middleware) ServeACS(w http.ResponseWriter, r *http.Request) {
 
 	m.CreateSessionFromAssertion(w, r, assertion)
 	return
+}
+
+func (m *Middleware) ServeSLO(w http.ResponseWriter, r *http.Request) {
+	m.ServiceProvider.ParseLogoutRequest(r)
 }
 
 // RequireAccount is HTTP middleware that requires that each request be
