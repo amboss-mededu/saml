@@ -159,8 +159,14 @@ type EncryptionMethod struct {
 //
 // TODO(ross): revisit xmldsig and make this type more complete
 type KeyInfo struct {
-	XMLName     xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# KeyInfo"`
-	Certificate string   `xml:"X509Data>X509Certificate"`
+	XMLName     xml.Name  `xml:"http://www.w3.org/2000/09/xmldsig# KeyInfo"`
+	KeyNames    []KeyName `xml:"KeyName"`
+	Certificate string    `xml:"X509Data>X509Certificate"`
+}
+
+type KeyName struct {
+	XMLName xml.Name `xml:"http://www.w3.org/2000/09/xmldsig# KeyName"`
+	Value   string   `xml:",chardata"`
 }
 
 // Endpoint represents the SAML EndpointType object.
@@ -200,13 +206,24 @@ type SSODescriptor struct {
 type IDPSSODescriptor struct {
 	XMLName xml.Name `xml:"urn:oasis:names:tc:SAML:2.0:metadata IDPSSODescriptor"`
 	SSODescriptor
-	WantAuthnRequestsSigned *bool `xml:",attr"`
+	WantAuthnRequestsSigned    *bool           `xml:",attr"`
+	SingleSignOnServices       []Endpoint      `xml:"SingleSignOnService"`
+	NameIDMappingServices      []Endpoint      `xml:"NameIDMappingService"`
+	AssertionIDRequestServices []Endpoint      `xml:"AssertionIDRequestService"`
+	AttributeProfiles          []string        `xml:"AttributeProfile"`
+	Attributes                 []Attribute     `xml:"Attribute"`
+	Extensions                 []Extension     `xml:"Extensions"`
+	KeyDescriptor             KeyDescriptor 	`xml:"KeyDescriptor"`
+}
 
-	SingleSignOnServices       []Endpoint  `xml:"SingleSignOnService"`
-	NameIDMappingServices      []Endpoint  `xml:"NameIDMappingService"`
-	AssertionIDRequestServices []Endpoint  `xml:"AssertionIDRequestService"`
-	AttributeProfiles          []string    `xml:"AttributeProfile"`
-	Attributes                 []Attribute `xml:"Attribute"`
+type Extension struct {
+	XMLName xml.Name 		 `xml:"urn:oasis:names:tc:SAML:2.0:metadata Extensions"`
+	Scope  []Scope           `xml:"Scope"`
+}
+
+type Scope struct {
+	XMLName xml.Name 		  `xml:"urn:mace:shibboleth:metadata:1.0 Scope"`
+	Value   string            `xml:",chardata"`
 }
 
 // SPSSODescriptor represents the SAML SPSSODescriptorType object.

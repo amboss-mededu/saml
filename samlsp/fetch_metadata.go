@@ -49,6 +49,56 @@ func ParseMetadata(data []byte) (*saml.EntityDescriptor, error) {
 	return entity, nil
 }
 
+func ParseFederationMetadata(data []byte) ([]saml.EntityDescriptor, error) {
+	if err := xrv.Validate(bytes.NewBuffer(data)); err != nil {
+		return nil, err
+	}
+
+	var IDPS []saml.EntityDescriptor
+	entities := &saml.EntitiesDescriptor{}
+
+	if err := xml.Unmarshal(data, entities); err != nil {
+		return nil, err
+	}
+
+	for _, e := range entities.EntityDescriptors {
+		if len(e.IDPSSODescriptors) > 0 {
+			IDPS = append(IDPS, e)
+		}
+	}
+
+	if len(IDPS) == 0 {
+		return nil, errors.New("no entity found with IDPSSODescriptor")
+	}
+
+	return IDPS, nil
+}
+
+// FetchMetadata returns metadata from an IDP metadata URL.
+func FetchFederationMetadata(ctx context.Context, httpClient *http.Client, metadataURL url.URL) ([]saml.EntityDescriptor, error) {
+	req, err := http.NewRequest("GET", metadataURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, httperr.Response(*resp)
+	}
+
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return ParseFederationMetadata(data)
+}
+
 // FetchMetadata returns metadata from an IDP metadata URL.
 func FetchMetadata(ctx context.Context, httpClient *http.Client, metadataURL url.URL) (*saml.EntityDescriptor, error) {
 	req, err := http.NewRequest("GET", metadataURL.String(), nil)
