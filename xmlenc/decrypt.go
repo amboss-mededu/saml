@@ -109,11 +109,10 @@ func validateRSAKeyIfPresent(key interface{}, encryptedKey *etree.Element) (*rsa
 			if !ok {
 				return nil, fmt.Errorf("expected certificate to be an *rsa.PublicKey")
 			}
-			if rsaKey.N.Cmp(pubKey.N) != 0 || rsaKey.E != pubKey.E {
-				return nil, fmt.Errorf("certificate does not match provided key")
+			if rsaKey.N.Cmp(pubKey.N) == 0 && rsaKey.E == pubKey.E {
+				validCertificateFound = true
+				return rsaKey, nil
 			}
-			validCertificateFound = true
-			break
 		} else if el = encryptedKey.FindElement("./ds:X509IssuerSerial"); el != nil {
 			// TODO: determine how to validate the issuer serial information
 		}
