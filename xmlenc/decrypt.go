@@ -81,35 +81,45 @@ func getCiphertext(encryptedKey *etree.Element) ([]byte, error) {
 
 func validateRSAKeyIfPresent(key interface{}, encryptedKey *etree.Element) (*rsa.PrivateKey, error) {
 	rsaKey, ok := key.(*rsa.PrivateKey)
+	validCertificateFound := false
 	if !ok {
 		return nil, errors.New("expected key to be a *rsa.PrivateKey")
 	}
 
-	// extract and verify that the public key matches the certificate
-	// this section is included to either let the service know up front
-	// if the key will work, or let the service provider know which key
-	// to use to decrypt the message. Either way, verification is not
-	// security-critical.
-	if el := encryptedKey.FindElement("./KeyInfo/X509Data/X509Certificate"); el != nil {
-		certPEMbuf := el.Text()
-		certPEMbuf = "-----BEGIN CERTIFICATE-----\n" + certPEMbuf + "\n-----END CERTIFICATE-----\n"
-		certPEM, _ := pem.Decode([]byte(certPEMbuf))
-		if certPEM == nil {
-			return nil, fmt.Errorf("invalid certificate")
+	keyDescriptors := encryptedKey.FindElements("./KeyInfo/X509Data")
+
+	for index, keyDescriptor := range keyDescriptors {
+		// extract and verify that the public key matches the certificate
+		// this section is included to either let the service know up front
+		// if the key will work, or let the service provider know which key
+		// to use to decrypt the message. Either way, verification is not
+		// security-critical.
+		if el := keyDescriptor.FindElement("./ds:X509Certificate"); el != nil {
+			certPEMbuf := el.Text()
+			certPEMbuf = "-----BEGIN CERTIFICATE-----\n" + certPEMbuf + "\n-----END CERTIFICATE-----\n"
+			certPEM, _ := pem.Decode([]byte(certPEMbuf))
+			if certPEM == nil {
+				return nil, fmt.Errorf("invalid certificate at index %d", index)
+			}
+			cert, err := x509.ParseCertificate(certPEM.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			pubKey, ok := cert.PublicKey.(*rsa.PublicKey)
+			if !ok {
+				return nil, fmt.Errorf("expected certificate to be an *rsa.PublicKey")
+			}
+			if rsaKey.N.Cmp(pubKey.N) != 0 || rsaKey.E != pubKey.E {
+				return nil, fmt.Errorf("certificate does not match provided key")
+			}
+			validCertificateFound = true
+			break
+		} else if el = encryptedKey.FindElement("./ds:X509IssuerSerial"); el != nil {
+			// TODO: determine how to validate the issuer serial information
 		}
-		cert, err := x509.ParseCertificate(certPEM.Bytes)
-		if err != nil {
-			return nil, err
-		}
-		pubKey, ok := cert.PublicKey.(*rsa.PublicKey)
-		if !ok {
-			return nil, fmt.Errorf("expected certificate to be an *rsa.PublicKey")
-		}
-		if rsaKey.N.Cmp(pubKey.N) != 0 || rsaKey.E != pubKey.E {
-			return nil, fmt.Errorf("certificate does not match provided key")
-		}
-	} else if el = encryptedKey.FindElement("./KeyInfo/X509Data/X509IssuerSerial"); el != nil {
-		// TODO: determine how to validate the issuer serial information
+	}
+	if !validCertificateFound {
+		return nil, fmt.Errorf("no valid certificate found")
 	}
 	return rsaKey, nil
 }
